@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 
-const Redemption = require("../models/Redemption");
+const Redemption = require("../models/redemption");
 const User = require("../models/User");
 const authMiddleware = require("../middleware/authMiddleware");
 
