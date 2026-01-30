@@ -49,26 +49,32 @@ router.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    /*console.log("LOGIN EMAIL:", email);
-    console.log("INPUT PASSWORD:", password);*/
+    console.log("LOGIN EMAIL:", email);
+    console.log("INPUT PASSWORD:", password);
 
     const user = await User.findOne({ email });
     if (!user) {
       console.log("USER NOT FOUND");
       return res.status(401).json({ message: "Invalid credentials" });
     }
-    if(!user.isActive){
+
+    if (!user.isActive) {
       console.log("USER INACTIVE");
       return res.status(403).json({ message: "Account is inactive. Please contact admin" });
     }
 
-    /*console.log("DB PASSWORD:", user.password);*/
+    console.log("DB PASSWORD:", user.password);
 
     const isMatch = await bcrypt.compare(password, user.password);
-    /*console.log("PASSWORD MATCH:", isMatch);*/
+    console.log("PASSWORD MATCH:", isMatch);
 
     if (!isMatch) {
       return res.status(401).json({ message: "Invalid credentials" });
+    }
+
+    if (!process.env.JWT_SECRET) {
+      console.error("JWT_SECRET is not defined in environment variables");
+      return res.status(500).json({ message: "Internal server error" });
     }
 
     const token = jwt.sign(
@@ -79,11 +85,10 @@ router.post("/login", async (req, res) => {
 
     res.json({ token, role: user.role });
   } catch (error) {
-    /* console.error("LOGIN ERROR:", error);*/
+    console.error("LOGIN ERROR:", error);
     res.status(500).json({ message: "Login failed" });
   }
 });
-
 
 /* =========================
    PROFILE
