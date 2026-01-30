@@ -8,6 +8,7 @@ require('dotenv').config();
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }))
 app.use('/api/auth', require('./route/auth'));
 app.use('/api/dashboard', require('./route/dashboard'));
 app.use('/api/survey', require('./route/survey'));
