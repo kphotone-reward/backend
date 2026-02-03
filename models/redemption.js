@@ -10,6 +10,11 @@ const redemptionSchema = new mongoose.Schema({
     type: Number,
     required: true
   },
+  assignedSurvey: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Survey",
+    required: false // Optional field for assigned surveys
+  },
   status: {
     type: String,
     enum: ["pending", "approved", "rejected"],

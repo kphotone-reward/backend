@@ -1,4 +1,5 @@
 const express = require("express");
+const mongoose = require("mongoose");
 const Survey = require("../models/Survey");
 const UserSurvey = require("../models/UserSurvey");
 const User = require("../models/User");
@@ -37,11 +38,23 @@ router.get("/all", authMiddleware, async (req, res) => {
       .skip((pageNum - 1) * pageSize)
       .limit(pageSize)
       .sort({ createdAt: -1 })
-      .select("_id title surveyLink rewardPoints status"); // Include survey ID
+      .select("_id title surveyLink rewardPoints status startDate endDate")
+      .lean(); // Convert to plain JavaScript objects
 
-    res.json({ surveys, pages, total });
+    // Check if each survey is assigned to any user
+    const surveyIds = surveys.map(survey => survey._id);
+    const assignments = await UserSurvey.find({ surveyId: { $in: surveyIds } });
+
+    const surveysWithAssignmentStatus = surveys.map(survey => {
+      const isAssigned = assignments.some(
+        assignment => assignment.surveyId.toString() === survey._id.toString()
+      );
+      return { ...survey, isAssigned };
+    });
+
+    res.json({ surveys: surveysWithAssignmentStatus, pages, total });
   } catch (error) {
-    console.error("Fetch surveys error:", error);
+    // console.error("Fetch surveys error:", error);
     res.status(500).json({ message: error.message });
   }
 });
@@ -51,36 +64,45 @@ router.get("/all", authMiddleware, async (req, res) => {
  */
 router.get("/assigned", authMiddleware, async (req, res) => {
   try {
-    const userId = req.user.userId;
+    const { userId } = req.query;
 
-    // Find all surveys assigned to this user
-    const userSurveys = await UserSurvey.find({ userId });
+    if (!userId) {
+      return res.status(400).json({ message: "User ID is required" });
+    }
+
+    const userSurveys = await UserSurvey.find({
+      userId: new mongoose.Types.ObjectId(userId)
+    });
 
     if (!userSurveys || userSurveys.length === 0) {
       return res.json({ surveys: [] });
     }
 
-    // Get survey details for each assigned survey
     const surveyIds = userSurveys.map(us => us.surveyId);
-    // Filter out paused surveys - only show active surveys
-    const surveys = await Survey.find({ _id: { $in: surveyIds }, status: { $ne: 'paused' } })
-      .select("_id title surveyLink rewardPoints status"); // Include survey ID
 
-    // Combine survey data with assignment status
+    const surveys = await Survey.find({
+      _id: { $in: surveyIds },
+      status: { $ne: "paused" }
+    }).select("_id title surveyLink rewardPoints status startDate endDate");
+
     const assignedSurveys = surveys.map(survey => {
-      const assignment = userSurveys.find(us => us.surveyId.toString() === survey._id.toString());
+      const assignment = userSurveys.find(
+        us => us.surveyId.toString() === survey._id.toString()
+      );
+
       return {
         ...survey.toObject(),
-        assignmentStatus: assignment?.status || 'sent'
+        assignmentStatus: assignment?.status || "sent"
       };
     });
 
     res.json({ surveys: assignedSurveys });
   } catch (error) {
-    console.error("Fetch assigned surveys error:", error);
+    //console.error("Fetch assigned surveys error:", error);
     res.status(500).json({ message: error.message });
   }
 });
+
 
 /**
  * UPDATE SURVEY (ADMIN)
@@ -93,6 +115,9 @@ router.patch("/:surveyId", authMiddleware, async (req, res) => {
 
     const { surveyId } = req.params;
     const { title, surveyLink, rewardPoints, startDate, endDate } = req.body;
+
+   // console.log("Request body:", req.body);
+    console.log("Survey ID:", surveyId);
 
     // Validate dates if provided
     if (startDate && endDate) {
@@ -131,7 +156,7 @@ router.patch("/:surveyId", authMiddleware, async (req, res) => {
       survey
     });
   } catch (error) {
-    console.error("Update survey error:", error);
+    //console.error("Update survey error:", error);
     res.status(500).json({ message: error.message });
   }
 });
@@ -213,7 +238,7 @@ router.post("/create", authMiddleware, async (req, res) => {
       survey
     });
   } catch (error) {
-    console.error("Create survey error:", error);
+    //console.error("Create survey error:", error);
     res.status(500).json({ message: error.message });
   }
 });
@@ -229,25 +254,29 @@ router.post("/assign", authMiddleware, async (req, res) => {
 
     const { userId, surveyId } = req.body;
 
-    const existing = await UserSurvey.findOne({ userId, surveyId });
+    const existing = await UserSurvey.findOne({
+       userId:new mongoose.Types.ObjectId(userId),
+       surveyId:new mongoose.Types.ObjectId(surveyId)
+       });
     if (existing) {
       return res.status(400).json({ message: "Survey already assigned to this user" });
     }
 
     const assignment = new UserSurvey({
-      userId,
-      surveyId,
+      userId:new mongoose.Types.ObjectId(userId),
+      surveyId:new mongoose.Types.ObjectId(surveyId),
       status: "sent"
     });
 
     await assignment.save();
+    assignment.push(assignment);
 
     res.status(201).json({
       message: "Survey assigned to user successfully",
       assignment
     });
   } catch (error) {
-    console.error("Assign survey error:", error);
+    //console.error("Assign survey error:", error);
     res.status(500).json({ message: error.message });
   }
 });
@@ -298,16 +327,101 @@ router.post("/assign-multiple", authMiddleware, async (req, res) => {
       assignments
     });
   } catch (error) {
-    console.error("Assign survey to multiple users error:", error);
+   // console.error("Assign survey to multiple users error:", error);
     res.status(500).json({ message: error.message });
   }
 });
+
+/**
+ * Assigned add points (ADMIN)
+ */
+router.post("/add-points", authMiddleware, async (req, res) => {
+  try {
+    if (req.user.role !== "admin") {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const { userId, surveyId, points } = req.body;
+
+    if (!userId || !surveyId || !points) {
+      return res.status(400).json({
+        message: "User ID, survey ID and points are required"
+      });
+    }
+
+    const assignment = await UserSurvey.findOne({
+      userId: new mongoose.Types.ObjectId(userId),
+      surveyId: new mongoose.Types.ObjectId(surveyId)
+    });
+
+    if (!assignment) {
+      return res.status(404).json({
+        message: "Survey not assigned to user"
+      });
+    }
+
+    if (assignment.status === "rewarded") {
+      return res.status(400).json({
+        message: "Points already added for this survey"
+      });
+    }
+
+    // Add points ONCE
+    await User.findByIdAndUpdate(userId, {
+      $inc: { points: Number(points) }
+    });
+
+    // Mark rewarded
+    assignment.status = "rewarded";
+    assignment.rewardedAt = new Date();
+    await assignment.save();
+
+    res.json({ message: "Points added successfully" });
+  } catch (err) {
+    //console.error("Add points error:", err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
+
+/**
+ * Survey complete (USER)
+ */
+router.get("/completed", authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+   // console.log("Fetching completed surveys for userId:", userId);
+
+    const completedSurveys = await UserSurvey.find({
+      userId,
+      status: "rewarded"
+    })
+      .populate("surveyId")
+      .sort({ rewardedAt: -1 });
+
+    //console.log("Completed Surveys Query Result:", completedSurveys);
+
+    const result = completedSurveys.map((assignment) => ({
+      surveyId: assignment.surveyId._id,
+      title: assignment.surveyId.title,
+      points: assignment.surveyId.rewardPoints,
+      rewardedAt: assignment.rewardedAt
+    }));
+
+    res.json({ surveys: result });
+  } catch (err) {
+    //console.error("Fetch completed surveys error:", err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
 
 /** Complete Survey (USER) */
 router.post("/complete", authMiddleware, async (req, res) => {
   try {
     const { surveyId } = req.body;
-    const userId = req.user.userId;
+    const userId = req.user._id;
 
     if (!surveyId) {
       return res.status(400).json({ message: "Survey ID is required" });
@@ -340,7 +454,7 @@ router.post("/complete", authMiddleware, async (req, res) => {
       pointsAdded: survey.rewardPoints
     });
   } catch (error) {
-    console.error("Complete survey error:", error);
+    // console.error("Complete survey error:", error);
     res.status(500).json({ message: error.message });
   }
 });
@@ -355,6 +469,8 @@ router.patch("/pause/:surveyId", authMiddleware, async (req, res) => {
     }
 
     const { surveyId } = req.params;
+    console.log("Pause Survey - Survey ID:", surveyId); // Log surveyId for debugging
+    console.log("User Role:", req.user.role); // Log user role for debugging
 
     const survey = await Survey.findByIdAndUpdate(
       surveyId,
@@ -409,7 +525,7 @@ router.patch("/resume/:surveyId", authMiddleware, async (req, res) => {
       survey: updatedSurvey
     });
   } catch (error) {
-    console.error("Resume survey error:", error);
+    // console.error("Resume survey error:", error);
     res.status(500).json({ message: error.message });
   }
 });
@@ -441,7 +557,7 @@ router.patch("/check-expiry/:surveyId", authMiddleware, async (req, res) => {
       survey: await Survey.findById(surveyId)
     });
   } catch (error) {
-    console.error("Check expiry error:", error);
+    // console.error("Check expiry error:", error);
     res.status(500).json({ message: error.message });
   }
 });
@@ -471,6 +587,57 @@ router.get("/admin/stats", authMiddleware, async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ message: "Failed to fetch survey stats" });
+  }
+});
+
+/**
+ * GET SURVEYS FOR DROPDOWN
+ */
+router.get("/dropdown", authMiddleware, async (req, res) => {
+  try {
+    const surveys = await Survey.find({})
+      .select("_id title rewardPoints"); // Fetch only necessary fields
+
+    res.json(surveys);
+  } catch (error) {
+    // console.error("Error fetching surveys for dropdown:", error);
+    res.status(500).json({ message: "Failed to fetch surveys." });
+  }
+});
+
+/**
+ * assigned-for-points - Get total points from assigned surveys for a user
+ */
+router.get("/assigned-for-points", authMiddleware, async (req, res) => {
+  try {
+    if (req.user.role !== "admin") {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const { userId } = req.query;
+
+    if (!userId) {
+      return res.status(400).json({ message: "User ID is required" });
+    }
+
+    
+
+    const assignments = await UserSurvey.find({
+      userId: new mongoose.Types.ObjectId(userId),
+      status: { $ne: "rewarded" }
+    }).populate("surveyId");
+
+    const surveys = assignments.map(a => ({
+      _id: a.surveyId._id,
+      title: a.surveyId.title,
+      rewardPoints: a.surveyId.rewardPoints,
+      assignmentStatus: a.status
+    }));
+
+    res.json({ surveys });
+  } catch (error) {
+    // console.error("assigned-for-points error:", error);
+    res.status(500).json({ message: error.message });
   }
 });
 

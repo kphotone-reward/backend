@@ -3,6 +3,7 @@ const app = express();
 const cors = require('cors');
 const mongoose = require('mongoose');
 const redeemRoutes = require("./route/redemption")
+const surveyRoutes = require("./route/survey")
 require('dotenv').config();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }))
@@ -12,8 +13,8 @@ app.use(cors());
 
 app.use('/api/auth', require('./route/auth'));
 app.use('/api/dashboard', require('./route/dashboard'));
-app.use('/api/survey', require('./route/survey'));
-app.use("/api/redemption", require("./route/redemption"));
+app.use('/api/surveys', surveyRoutes); // Corrected route prefix
+app.use("/api/redemption", redeemRoutes);
 
 
 
