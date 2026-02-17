@@ -36,7 +36,11 @@ mongoose.connect(process.env.MONGODB_URI)
 //   res.send('server is running with mongoDB');
 // });
 
- const PORT = process.env.PORT || 5000;
+//  const PORT = process.env.PORT || 5000;
+//  app.listen(PORT, () => {   console.log(`Server is running on port ${PORT}`);
+// });
+
+ const PORT = process.env.PORT || 3000;
  app.listen(PORT, () => {   console.log(`Server is running on port ${PORT}`);
 });
 
