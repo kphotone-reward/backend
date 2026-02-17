@@ -32,7 +32,7 @@ router.get("/stats", authMiddleware, async (req, res) => {
       totalPointsDistributed
     })
   } catch (error) {
-    console.error("Admin stats error:", error)
+    //console.error("Admin stats error:", error)
     res.status(500).json({ message: "Failed to fetch admin stats" })
   }
 })
@@ -71,7 +71,7 @@ router.patch("/survey/:surveyId/pause", authMiddleware, async (req, res) => {
       survey
     })
   } catch (error) {
-    console.error("Pause survey error:", error)
+    //console.error("Pause survey error:", error)
     res.status(500).json({ message: "Failed to update survey status" })
   }
 })

@@ -47,7 +47,7 @@ exports.signup = async (req, res) => {
     res.status(201).json({ message: "User created successfully" });
 
   } catch (error) {
-    console.error("Signup error:", error);
+    //console.error("Signup error:", error);
     res.status(500).json({ message: "Error creating user" });
   }
 };
@@ -81,7 +81,7 @@ exports.login = async (req, res) => {
       role: user.role,
     });
   } catch (error) {
-    console.error("Login error:", error);
+    //console.error("Login error:", error);
     res.status(500).json({ message: "Login failed" });
   }
 };
@@ -113,7 +113,7 @@ exports.getUsers = async (req, res) => {
       pages: Math.ceil(total / limit),
     });
   } catch (error) {
-    console.error("getUsers error:", error);
+    //console.error("getUsers error:", error);
     res.status(500).json({ message: "Failed to fetch users" });
   }
 };
@@ -148,7 +148,7 @@ exports.updateUser = async (req, res) => {
       message: "User updated successfully",
     });
   } catch (error) {
-    console.error("Update user error:", error);
+    //console.error("Update user error:", error);
     res.status(500).json({ message: "Server error" });
   }
 };
@@ -178,7 +178,7 @@ exports.getUsersBySpeciality = async (req, res) => {
     res.json({ users });
 
   } catch (error) {
-    console.error("Filter error:", error);
+    //console.error("Filter error:", error);
     res.status(500).json({ message: "Failed to fetch users" });
   }
 };

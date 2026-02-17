@@ -9,7 +9,7 @@ const router = express.Router();
 
 router.get("/surveys", authMiddleware, async (req, res) => {
   try {
-    console.log("Fetching surveys for user:", req.user.userId);
+    //console.log("Fetching surveys for user:", req.user.userId);
     const surveys = await UserSurvey.find({
       userId: req.user.userId
     }).populate("surveyId");
@@ -19,7 +19,7 @@ router.get("/surveys", authMiddleware, async (req, res) => {
       surveys
     });
   } catch (error) {
-    console.error("Dashboard surveys error:", error);
+    //console.error("Dashboard surveys error:", error);
     res.status(500).json({ message: error.message });
   }
 });
