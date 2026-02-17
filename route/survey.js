@@ -118,6 +118,7 @@ router.patch("/:surveyId", authMiddleware, async (req, res) => {
 
    // console.log("Request body:", req.body);
     console.log("Survey ID:", surveyId);
+   
 
     // Validate dates if provided
     if (startDate && endDate) {
@@ -181,7 +182,7 @@ router.get("/:surveyId/users", authMiddleware, async (req, res) => {
 
     // Get user details for each assignment
     const userIds = userSurveys.map(us => us.userId);
-    const users = await User.find({ _id: { $in: userIds } }).select('name email');
+    const users = await User.find({ _id: { $in: userIds } }).select('name email speciality');
 
     // Combine user data with assignment status
     const assignedUsers = users.map(user => {
@@ -469,8 +470,8 @@ router.patch("/pause/:surveyId", authMiddleware, async (req, res) => {
     }
 
     const { surveyId } = req.params;
-    console.log("Pause Survey - Survey ID:", surveyId); // Log surveyId for debugging
-    console.log("User Role:", req.user.role); // Log user role for debugging
+    //console.log("Pause Survey - Survey ID:", surveyId); // Log surveyId for debugging
+    //console.log("User Role:", req.user.role); // Log user role for debugging
 
     const survey = await Survey.findByIdAndUpdate(
       surveyId,
@@ -642,5 +643,35 @@ router.get("/assigned-for-points", authMiddleware, async (req, res) => {
 });
 
 
+/**
+ * Edit Survey (ADMIN)
+ * PATCH /api/survey/:surveyId
+ */
+router.patch("/update/:surveyId", authMiddleware, async (req, res) => {
+  try {
+    const updatedSurvey = await Survey.findByIdAndUpdate(
+      req.params.surveyId,   
+      {
+        title: req.body.title,
+        surveyLink: req.body.surveyLink,
+        rewardPoints: req.body.rewardPoints,
+        startDate: req.body.startDate,
+        endDate: req.body.endDate
+      },
+      { new: true }
+      
+    );
+     //console.log("PATCH HIT", req.body);
+     if (!updatedSurvey) {
+      return res.status(404).json({ message: "Survey not found" });
+    }
+
+    res.json({ 
+      message: "Survey updated successfully", survey: updatedSurvey });
+  } catch (error) {
+    console.error("Edit survey error:", error);
+    res.status(500).json({ message: "Failed to edit survey" });
+  }
+});
 
 module.exports = router;

@@ -21,8 +21,10 @@ const userSurveySchema = new mongoose.Schema({
     default: Date.now
   },
   completedAt: {
-    type: Date
-  }
+    type: Date,
+      default: null
+  },
+  timestamps: true
 });
 
 module.exports = mongoose.model("UserSurvey", userSurveySchema);

@@ -2,7 +2,7 @@ const express = require("express");
 const authMiddleware = require("../middleware/authMiddleware");
 const UserSurvey = require("../models/UserSurvey");
 
-console.log("🔥 dashboard.js loaded");
+
 
 
 const router = express.Router();

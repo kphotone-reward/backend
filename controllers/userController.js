@@ -1,40 +1,57 @@
 const User = require("../models/User");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const Speciality = require("../models/speciality");
 
 /* =========================
-   SIGNUP
+   SIGNUP 
 ========================= */
 exports.signup = async (req, res) => {
   try {
-    const { name, email, phone, country, password } = req.body;
+    const { name, email, password, speciality, phone, country } = req.body;
 
-    const exists = await User.findOne({ email });
-    if (exists) {
+    if (!name || !email || !speciality || !phone || !country || !password) {
+      return res.status(400).json({ message: "All fields are required" });
+    }
+
+    const normalizedSpeciality =
+      speciality.trim().replace(/\b\w/g, c => c.toUpperCase());
+
+    let existsSpeciality = await Speciality.findOne({
+      name: normalizedSpeciality
+    });
+
+    if (!existsSpeciality) {
+      await Speciality.create({ name: normalizedSpeciality });
+    }
+
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
       return res.status(400).json({ message: "Email already exists" });
     }
 
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-    const user = await User.create({
+    await User.create({
       name,
       email,
       phone,
       country,
+      speciality: normalizedSpeciality,
       password: hashedPassword,
       role: "user",
       isActive: true,
+      points: 0,
     });
 
-    res.status(201).json({
-      message: "User created successfully",
-    });
+    res.status(201).json({ message: "User created successfully" });
+
   } catch (error) {
     console.error("Signup error:", error);
-    res.status(500).json({ message: "Signup failed" });
+    res.status(500).json({ message: "Error creating user" });
   }
 };
+
 
 /* =========================
    LOGIN
@@ -135,4 +152,36 @@ exports.updateUser = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+
+/* =========================
+   GET USER BY SPECIALITY (ADMIN)
+========================= */
+exports.getUsersBySpeciality = async (req, res) => {
+  try {
+    const { specialities } = req.query;
+
+    // console.log("Incoming specialities:", specialities);
+
+    if (!specialities || specialities.trim() === "") {
+      return res.json({ users: [] }); // return empty if nothing selected
+    }
+
+    const specialityArray = specialities.split(",");
+
+    const users = await User.find({
+      speciality: { $in: specialityArray }
+    }).select("-password");
+
+    // console.log("Filtered users:", users.length);
+
+    res.json({ users });
+
+  } catch (error) {
+    console.error("Filter error:", error);
+    res.status(500).json({ message: "Failed to fetch users" });
+  }
+};
+
+
 

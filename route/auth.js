@@ -4,43 +4,17 @@ const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 const authMiddleware = require("../middleware/authMiddleware");
 const { updateUser } = require("../controllers/userController");
+const { signup } = require("../controllers/userController");
+const {getSpecialities} = require("../controllers/specialityController");
+const {getUsersBySpeciality} = require("../controllers/userController");
+
 
 const router = express.Router();
 
 /* =========================
    SIGNUP
 ========================= */
-router.post("/signup", async (req, res) => {
-  try {
-    const { name, email, phone, country, password } = req.body;
-
-    if (!name || !email || !phone || !country || !password) {
-      return res.status(400).json({ message: "All fields are required" });
-    }
-
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({ message: "Email already exists" });
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    await User.create({
-      name,
-      email,
-      phone,
-      country,
-      password: hashedPassword,
-      role: "user",
-      isActive: true,
-      points: 0,
-    });
-
-    res.status(201).json({ message: "User created successfully" });
-  } catch (error) {
-    res.status(500).json({ message: "Error creating user" });
-  }
-});
+router.post("/signup", signup);
 
 /* =========================
    LOGIN
@@ -49,24 +23,24 @@ router.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    console.log("LOGIN EMAIL:", email);
-    console.log("INPUT PASSWORD:", password);
+    // console.log("LOGIN EMAIL:", email);
+    // console.log("INPUT PASSWORD:", password);
 
     const user = await User.findOne({ email });
     if (!user) {
-      console.log("USER NOT FOUND");
+      // console.log("USER NOT FOUND");
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
     if (!user.isActive) {
-      console.log("USER INACTIVE");
+      // console.log("USER INACTIVE");
       return res.status(403).json({ message: "Account is inactive. Please contact admin" });
     }
 
-    console.log("DB PASSWORD:", user.password);
+    // console.log("DB PASSWORD:", user.password);
 
     const isMatch = await bcrypt.compare(password, user.password);
-    console.log("PASSWORD MATCH:", isMatch);
+    // console.log("PASSWORD MATCH:", isMatch);
 
     if (!isMatch) {
       return res.status(401).json({ message: "Invalid credentials" });
@@ -193,5 +167,16 @@ router.put("/users/:id/status", authMiddleware, async (req, res) => {
   });
 });
 
+
+/* =========================
+   GET SPECIALITIES
+========================= */
+router.get("/specialities", getSpecialities);
+
+
+/* =========================
+   GET USERS BY SPECIALITY
+========================= */
+router.get("/filter-users", getUsersBySpeciality);
 
 module.exports = router;
