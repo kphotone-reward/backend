@@ -24,7 +24,6 @@ const userSurveySchema = new mongoose.Schema({
     type: Date,
       default: null
   },
-  timestamps: true
-});
+}, {timestamps: true});
 
 module.exports = mongoose.model("UserSurvey", userSurveySchema);
