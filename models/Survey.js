@@ -1,6 +1,12 @@
 const mongoose = require("mongoose");
 
 const surveySchema = new mongoose.Schema({
+  surveyCode: {
+    type: String,
+    unique: true,
+    required: true,
+    trim: true
+  },
   title: {
     type: String,
     required: true
