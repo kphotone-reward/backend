@@ -59,18 +59,20 @@ router.post("/request", authMiddleware, async (req, res) => {
         });
       }
 
-     for (const assignment of eligibleAssignments) {
-  await Redemption.create({
-    userId: req.user.userId,
-    points: Number(assignment.surveyId.rewardPoints || 0),
-    assignedSurvey: assignment.surveyId._id,
-    status: "pending"
-  });
-}
+      const redemptions = await Promise.all(
+        rewardedAssignments.map((assignment) =>
+          Redemption.create({
+            userId: req.user.userId,
+            points: Number(assignment.surveyId.rewardPoints || 0),
+            assignedSurvey: assignment.surveyId._id,
+            status: "pending"
+          })
+        )
+      );
 
       return res.status(201).json({
         message: "Redemption request submitted",
-        redemption
+        redemptions
       });
     }
 

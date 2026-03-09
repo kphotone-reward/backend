@@ -18,7 +18,6 @@ router.get("/all", authMiddleware, async (req, res) => {
     const pageNum = parseInt(page, 10);
     const pageSize = parseInt(limit, 10);
 
-    // Build search query
     let query = {};
     if (search) {
       query = {
@@ -29,32 +28,18 @@ router.get("/all", authMiddleware, async (req, res) => {
       };
     }
 
-    // Get total count
     const total = await Survey.countDocuments(query);
     const pages = Math.ceil(total / pageSize);
 
-    // Fetch surveys with pagination
     const surveys = await Survey.find(query)
       .skip((pageNum - 1) * pageSize)
       .limit(pageSize)
       .sort({ createdAt: -1 })
       .select("_id surveyCode title surveyLink rewardPoints status startDate endDate")
-      .lean(); // Convert to plain JavaScript objects
+      .lean();
 
-    // Check if each survey is assigned to any user
-    const surveyIds = surveys.map(survey => survey._id);
-    const assignments = await UserSurvey.find({ surveyId: { $in: surveyIds } });
-
-    const surveysWithAssignmentStatus = surveys.map(survey => {
-      const isAssigned = assignments.some(
-        assignment => assignment.surveyId.toString() === survey._id.toString()
-      );
-      return { ...survey, isAssigned };
-    });
-
-    res.json({ surveys: surveysWithAssignmentStatus, pages, total });
+    res.json({ surveys, pages, total });
   } catch (error) {
-    // console.error("Fetch surveys error:", error);
     res.status(500).json({ message: error.message });
   }
 });
@@ -70,43 +55,30 @@ router.get("/assigned", authMiddleware, async (req, res) => {
       return res.status(400).json({ message: "User ID is required" });
     }
 
-    // const userSurveys = await UserSurvey.find({
-    //   userId: new mongoose.Types.ObjectId(userId)
-    // });
+    const userSurveys = await UserSurvey
+      .find({ userId: new mongoose.Types.ObjectId(userId) })
+      .populate("surveyId");
 
-  const userSurveys = await UserSurvey
-    .find({ userId: new mongoose.Types.ObjectId(userId) })
-    .populate("surveyId");
-    //console.log("User Surveys:", userSurveys); // Log the userSurveys result for debugging
+    if (!userSurveys || userSurveys.length === 0) {
+      return res.json({ surveys: [] });
+    }
 
-  if (!userSurveys || userSurveys.length === 0) {
-    return res.json({ surveys: [] });
-  }
+    const assignedSurveys = userSurveys.map(us => ({
+      _id: us.surveyId._id,
+      surveyCode: us.surveyId.surveyCode,
+      title: us.surveyId.title,
+      surveyLink: us.surveyId.surveyLink,
+      rewardPoints: us.surveyId.rewardPoints,
+      status: us.surveyId.status,
+      startDate: us.surveyId.startDate,
+      endDate: us.surveyId.endDate,
+      assignmentStatus: us.status,
+      assignedAt: us.assignedAt,
+      completedAt: us.completedAt
+    }));
 
-  const surveyIds = userSurveys.map(us => us.surveyId);
-
-  const surveys = await Survey.find({
-    _id: { $in: surveyIds },
-    status: { $ne: "paused" }
-  }).select("_id surveyCode title surveyLink rewardPoints status startDate endDate");
-
-  const assignedSurveys = surveys.map(survey => {
-    const assignment = userSurveys.find(
-      us => us.surveyId.toString() === survey._id.toString()
-    );
-
-    return {
-      ...survey.toObject(),
-      // include metadata from the UserSurvey document
-      assignmentStatus: assignment?.status || "sent",
-      assignedAt: assignment?.assignedAt || null,
-      completedAt: assignment?.completedAt || null
-    };
-  });
-
-  res.json({ surveys: assignedSurveys });
+    res.json({ surveys: assignedSurveys });
   } catch (error) {
-    // console.error("Fetch assigned surveys error:", error);
     res.status(500).json({ message: error.message });
   }
 });
@@ -415,12 +387,12 @@ router.post("/add-points", authMiddleware, async (req, res) => {
 
 /**
  * Survey complete (USER)
- */
+ 
 router.get("/completed", authMiddleware, async (req, res) => {
   try {
     const userId = req.user._id;
 
-   // console.log("Fetching completed surveys for userId:", userId);
+    console.log("Fetching completed surveys for userId:", userId);
 
     const completedSurveys = await UserSurvey.find({
       userId,
@@ -429,7 +401,7 @@ router.get("/completed", authMiddleware, async (req, res) => {
       .populate("surveyId")
       .sort({ rewardedAt: -1 });
 
-    //console.log("Completed Surveys Query Result:", completedSurveys);
+    
 
     const result = completedSurveys.map((assignment) => ({
       surveyId: assignment.surveyId._id,
@@ -438,12 +410,15 @@ router.get("/completed", authMiddleware, async (req, res) => {
       rewardedAt: assignment.rewardedAt
     }));
 
+    console.log("Completed Surveys Query Result:", completedSurveys);
+
     res.json({ surveys: result });
   } catch (err) {
     //console.error("Fetch completed surveys error:", err);
     res.status(500).json({ message: err.message });
   }
 });
+*/
 
 
 /** Complete Survey (USER) */
@@ -659,6 +634,7 @@ router.get("/assigned-for-points", authMiddleware, async (req, res) => {
     const surveys = assignments.map(a => ({
       _id: a.surveyId._id,
       title: a.surveyId.title,
+      surveyCode: a.surveyId.surveyCode || a.surveyId.surveyCode === 0 ? a.surveyId.surveyCode : undefined,
       rewardPoints: a.surveyId.rewardPoints,
       assignmentStatus: a.status
     }));
