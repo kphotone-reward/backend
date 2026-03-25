@@ -5,8 +5,9 @@ const User = require("../models/User");
 const authMiddleware = require("../middleware/authMiddleware");
 const { updateUser } = require("../controllers/userController");
 const { signup } = require("../controllers/userController");
-const {getSpecialities} = require("../controllers/specialityController");
-const {getUsersBySpeciality} = require("../controllers/userController");
+ const {getSpecialities} = require("../controllers/specialityController");
+ const {getUsersBySpeciality} = require("../controllers/userController");
+ const { createUserByAdmin } = require("../controllers/userController");
 
 
 const router = express.Router();
@@ -57,7 +58,10 @@ router.post("/login", async (req, res) => {
       { expiresIn: "1d" }
     );
 
-    res.json({ token, role: user.role });
+    res.json({ token, 
+      role: user.role,
+       mustChangePassword: user.mustChangePassword 
+    });
   } catch (error) {
     console.error("LOGIN ERROR:", error);
     res.status(500).json({ message: "Login failed" });
@@ -168,6 +172,7 @@ router.put("/users/:id/status", authMiddleware, async (req, res) => {
 });
 
 
+
 /* =========================
    GET SPECIALITIES
 ========================= */
@@ -179,4 +184,48 @@ router.get("/specialities", getSpecialities);
 ========================= */
 router.get("/filter-users", getUsersBySpeciality);
 
+
+/* =========================
+   create user (ADMIN)
+========================= */
+router.post("/admin/create-user", createUserByAdmin);
+
+
+/* =========================
+   CHANGE PASSWORD
+========================= */
+router.post("/change-password", authMiddleware, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    const user = await User.findById(req.user.userId || req.user.id);
+
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    //console.log("CURRENT PASSWORD:", currentPassword);
+    //console.log("DB PASSWORD:", user.password);
+    //console.log("PASSWORD MATCH:", isMatch);
+
+    if (!isMatch) {
+      return res.status(400).json({ message: "Current password incorrect" });
+    }
+    const { validatePassword, passwordErrorMessage } = require("../utils/passwordValidator");
+    if (!validatePassword(newPassword)) {
+      return res.status(400).json({ message: passwordErrorMessage });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    user.password = hashedPassword;
+    user.mustChangePassword = false; // 🔥 THIS IS THE WHOLE POINT
+
+    await user.save();
+
+    res.json({ message: "Password updated successfully" });
+
+  } catch (err) {
+    res.status(500).json({ message: "Error changing password" });
+  }
+});
+
 module.exports = router;
+

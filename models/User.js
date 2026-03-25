@@ -6,6 +6,7 @@ const userSchema=new mongoose.Schema({
   phone: { type: String, required: true },
   country: { type: String, required: true },
   password: { type: String, required: true },
+  mustChangePassword: {type: Boolean, default: false},
   speciality: {type: String,required: true, index: true},
   points: { type: Number, default: 0 },
   role: { type: String, default: 'user' },

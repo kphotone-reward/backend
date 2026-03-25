@@ -16,6 +16,11 @@ exports.signup = async (req, res) => {
 
     const normalizedSpeciality =
       speciality.trim().replace(/\b\w/g, c => c.toUpperCase());
+      const { validatePassword, passwordErrorMessage } = require("../utils/passwordValidator");
+
+    if (!validatePassword(password)) {
+      return res.status(400).json({ message: passwordErrorMessage });
+    }
 
     let existsSpeciality = await Speciality.findOne({
       name: normalizedSpeciality
@@ -41,7 +46,7 @@ exports.signup = async (req, res) => {
       password: hashedPassword,
       role: "user",
       isActive: true,
-      points: 0,
+      points: 0,     
     });
 
     res.status(201).json({ message: "User created successfully" });
@@ -79,6 +84,7 @@ exports.login = async (req, res) => {
     res.json({
       token,
       role: user.role,
+      mustChangePassword: user.mustChangePassword
     });
   } catch (error) {
     //console.error("Login error:", error);
@@ -181,6 +187,62 @@ exports.getUsersBySpeciality = async (req, res) => {
     //console.error("Filter error:", error);
     res.status(500).json({ message: "Failed to fetch users" });
   }
+};
+
+/* =========================
+  Create User by Admin (with mustChangePassword flag)
+========================= */
+exports.createUserByAdmin = async (req, res) => {
+  try {
+    const { name, email, password, speciality, phone, country } = req.body;
+
+    if (!name || !email || !speciality || !phone || !country || !password) {
+      return res.status(400).json({ message: "All fields are required" });
+    }
+
+    const normalizedSpeciality =
+      speciality.trim().replace(/\b\w/g, c => c.toUpperCase());
+
+      const { validatePassword, passwordErrorMessage } = require("../utils/passwordValidator");
+
+    if (!validatePassword(password)) {
+      return res.status(400).json({ message: passwordErrorMessage });
+    }
+
+    let existsSpeciality = await Speciality.findOne({
+      name: normalizedSpeciality
+    });
+
+    if (!existsSpeciality) {
+      await Speciality.create({ name: normalizedSpeciality });
+    }
+
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ message: "Email already exists" });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    await User.create({
+      name,
+      email,
+      phone,
+      country,
+      speciality: normalizedSpeciality,
+      password: hashedPassword,
+      role: "user",
+      isActive: true,
+      points: 0,
+      mustChangePassword: true 
+    });
+
+    res.status(201).json({ message: "User created by admin" });
+
+  } catch (error) {
+  console.error("Admin create user error:", error);
+  res.status(500).json({ message: error.message });
+}
 };
 
 
