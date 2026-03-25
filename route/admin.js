@@ -10,12 +10,15 @@ const router = express.Router()
  * GET ADMIN STATS
  */
 router.get("/stats", authMiddleware, async (req, res) => {
+  console.log("Stats API HIT");
   try {
     if (req.user.role !== "admin") {
       return res.status(403).json({ message: "Access denied" })
     }
 
     const totalUsers = await User.countDocuments()
+    const inactiveUsers = await User.countDocuments({ isActive: false })
+    console.log("Inactive Users Count:", inactiveUsers);
     const totalSurveys = await Survey.countDocuments()
     const totalAssignments = await UserSurvey.countDocuments()
 
@@ -27,10 +30,12 @@ router.get("/stats", authMiddleware, async (req, res) => {
 
     res.json({
       totalUsers,
+      inactiveUsers,
       totalSurveys,
       totalAssignments,
       totalPointsDistributed
     })
+   
   } catch (error) {
     //console.error("Admin stats error:", error)
     res.status(500).json({ message: "Failed to fetch admin stats" })

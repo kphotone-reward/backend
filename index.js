@@ -6,6 +6,8 @@ const redeemRoutes = require("./route/redemption")
 const surveyRoutes = require("./route/survey");
 const speciality = require('./models/speciality');
 const specialityRoutes = require('./route/specialityRoutes');
+const adminRoutes = require('./route/admin');
+
 require('dotenv').config();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }))
@@ -18,6 +20,8 @@ app.use('/api/dashboard', require('./route/dashboard'));
 app.use('/api/surveys', surveyRoutes); // Corrected route prefix
 app.use("/api/redemption", redeemRoutes);
 app.use('/api/specialities', specialityRoutes); // Added speciality routes
+
+app.use('/api/admin', adminRoutes); // Added admin routes
 
 //console.log("Speciality route mounted");
 
