@@ -10,7 +10,7 @@ const UserSurvey = require("../models/UserSurvey");
 
     await UserSurvey.deleteMany({});
     await User.updateMany(
-      { role: { $ne: "admin" } },
+      { role: { $nin: ["admin", "super_admin"] } },
       { $set: { points: 0 } }
     );
 

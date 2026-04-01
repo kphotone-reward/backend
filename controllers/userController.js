@@ -3,6 +3,7 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const Speciality = require("../models/speciality");
 
+
 /* =========================
    SIGNUP 
 ========================= */
@@ -10,7 +11,7 @@ exports.signup = async (req, res) => {
   try {
     const { name, email, password, speciality, phone, country } = req.body;
 
-    if (!name || !email || !speciality || !phone || !country || !password) {
+    if (!name || !email ||  !speciality || !phone || !country || !password) {
       return res.status(400).json({ message: "All fields are required" });
     }
 
@@ -76,7 +77,7 @@ exports.login = async (req, res) => {
     }
 
     const token = jwt.sign(
-      { id: user._id, role: user.role },
+      { id: user._id, name: user.name, role: user.role },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
@@ -194,28 +195,28 @@ exports.getUsersBySpeciality = async (req, res) => {
 ========================= */
 exports.createUserByAdmin = async (req, res) => {
   try {
-    const { name, email, password, speciality, phone, country } = req.body;
+    const { name, email, password, speciality, phone, country, role } = req.body;
 
-    if (!name || !email || !speciality || !phone || !country || !password) {
+     if (!name || !email || (role !== "admin" && !speciality) || !phone || !country || !password) {
       return res.status(400).json({ message: "All fields are required" });
     }
 
-    const normalizedSpeciality =
-      speciality.trim().replace(/\b\w/g, c => c.toUpperCase());
+    let normalizedSpeciality = null;
 
-      const { validatePassword, passwordErrorMessage } = require("../utils/passwordValidator");
+if (role !== "admin") {
+  normalizedSpeciality =
+    speciality.trim().replace(/\b\w/g, c => c.toUpperCase());
 
-    if (!validatePassword(password)) {
-      return res.status(400).json({ message: passwordErrorMessage });
-    }
+  let existsSpeciality = await Speciality.findOne({
+    name: normalizedSpeciality
+  });
 
-    let existsSpeciality = await Speciality.findOne({
-      name: normalizedSpeciality
-    });
-
-    if (!existsSpeciality) {
-      await Speciality.create({ name: normalizedSpeciality });
-    }
+  if (!existsSpeciality) {
+    await Speciality.create({ name: normalizedSpeciality });
+  }
+} else {
+  normalizedSpeciality = "admin"; // or null if you prefer
+}
 
     const existingUser = await User.findOne({ email });
     if (existingUser) {
@@ -224,26 +225,81 @@ exports.createUserByAdmin = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    await User.create({
+    // 🔐 ROLE CONTROL STARTS HERE
+    let assignedRole = "user";
+
+    // 🚫 Nobody can create SUPER_ADMIN
+    if (role === "super_admin") {
+      return res.status(403).json({ message: "Not allowed" });
+    }
+
+    // 🟡 Admin → only USER
+    if (req.user.role === "admin") {
+      assignedRole = "user";
+    }
+
+    // 🔴 Super Admin → USER or ADMIN
+    else if (req.user.role === "super_admin") {
+      assignedRole = role === "admin" ? "admin" : "user";
+    }
+
+    const user = await User.create({
       name,
       email,
       phone,
       country,
       speciality: normalizedSpeciality,
       password: hashedPassword,
-      role: "user",
+      role: assignedRole,
       isActive: true,
       points: 0,
-      mustChangePassword: true 
+      mustChangePassword: true
     });
 
-    res.status(201).json({ message: "User created by admin" });
+    res.status(201).json({ message: "User created successfully", user });
 
   } catch (error) {
-  console.error("Admin create user error:", error);
-  res.status(500).json({ message: error.message });
-}
+    console.error("Admin create user error:", error);
+    res.status(500).json({ message: error.message });
+  }
 };
+
+/* =========================
+   UPDATE USER ROLE (ADMIN)
+========================= */
+
+
+const updateUserRole = async (req, res) => {
+  try {
+    // 🔐 Step 1 — Check SUPER ADMIN
+    if (req.user.role !== "super_admin") {
+      return res.status(403).json({ message: "Only super admin can change roles" });
+    }
+
+    const { role } = req.body;
+
+    // 🧠 Safety check (no nonsense roles)
+    if (!["admin", "user"].includes(role)) {
+      return res.status(400).json({ message: "Invalid role" });
+    }
+
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      { role },
+      { new: true }
+    );
+
+    res.json({
+      message: "Role updated successfully",
+      user,
+    });
+
+  } catch (error) {
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.updateUserRole = updateUserRole;
 
 
 

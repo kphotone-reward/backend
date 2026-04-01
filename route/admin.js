@@ -3,6 +3,7 @@ const User = require("../models/User")
 const Survey = require("../models/Survey")
 const UserSurvey = require("../models/UserSurvey")
 const authMiddleware = require("../middleware/authMiddleware")
+const { updateUserRole } = require("../controllers/userController")
 
 const router = express.Router()
 
@@ -12,7 +13,7 @@ const router = express.Router()
 router.get("/stats", authMiddleware, async (req, res) => {
   console.log("Stats API HIT");
   try {
-    if (req.user.role !== "admin") {
+    if (!["admin", "super_admin"].includes(req.user.role)) {
       return res.status(403).json({ message: "Access denied" })
     }
 
@@ -47,7 +48,7 @@ router.get("/stats", authMiddleware, async (req, res) => {
  */
 router.patch("/survey/:surveyId/pause", authMiddleware, async (req, res) => {
   try {
-    if (req.user.role !== "admin") {
+    if (!["admin", "super_admin"].includes(req.user.role)) {
       return res.status(403).json({ message: "Access denied" })
     }
 
@@ -80,6 +81,12 @@ router.patch("/survey/:surveyId/pause", authMiddleware, async (req, res) => {
     res.status(500).json({ message: "Failed to update survey status" })
   }
 })
+
+/* =========================
+   ADMIN → GET USERS
+========================= */  
+router.put("/users/:id/role", authMiddleware, updateUserRole);
+
 
 
 

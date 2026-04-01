@@ -9,7 +9,12 @@ const userSchema=new mongoose.Schema({
   mustChangePassword: {type: Boolean, default: false},
   speciality: {type: String,required: true, index: true},
   points: { type: Number, default: 0 },
-  role: { type: String, default: 'user' },
+  // role: { type: String, default: 'user' },
+  role:{
+    type : String,
+    enum :["super_admin","admin","user"],
+    default:"user"
+  },
   isActive: {type: Boolean, default: true,  },
   createdAt: { type: Date, default: Date.now }
   }, { timestamps: true });

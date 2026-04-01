@@ -146,7 +146,7 @@ router.get("/requests", authMiddleware, async (req, res) => {
  */
 router.get("/admin/requests", authMiddleware, async (req, res) => {
   try {
-    if (req.user.role !== "admin") {
+    if (!["admin", "super_admin"].includes(req.user.role)) {
       return res.status(403).json({ message: "Access denied" });
     }
 
@@ -168,7 +168,7 @@ router.get("/admin/requests", authMiddleware, async (req, res) => {
  */
 router.get("/stats", authMiddleware, async (req, res) => {
   try {
-    if (req.user.role !== "admin") {
+    if (!["admin", "super_admin"].includes(req.user.role)) {
       return res.status(403).json({ message: "Access denied" });
     }
 
@@ -194,7 +194,7 @@ router.get("/stats", authMiddleware, async (req, res) => {
  */
 router.patch("/:id/approve", authMiddleware, async (req, res) => {
   try {
-    if (req.user.role !== "admin") {
+    if (!["admin", "super_admin"].includes(req.user.role)) {
       return res.status(403).json({ message: "Access denied" });
     }
 
@@ -226,7 +226,7 @@ router.patch("/:id/approve", authMiddleware, async (req, res) => {
  */
 router.patch("/:id/reject", authMiddleware, async (req, res) => {
   try {
-    if (req.user.role !== "admin") {
+    if (!["admin", "super_admin"].includes(req.user.role)) {
       return res.status(403).json({ message: "Access denied" });
     }
 

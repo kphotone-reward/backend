@@ -3,14 +3,9 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 const authMiddleware = require("../middleware/authMiddleware");
-const { updateUser } = require("../controllers/userController");
-const { signup } = require("../controllers/userController");
+const {updateUser, signup, getUsersBySpeciality, createUserByAdmin} = require("../controllers/userController");
  const {getSpecialities} = require("../controllers/specialityController");
- const {getUsersBySpeciality} = require("../controllers/userController");
- const { createUserByAdmin } = require("../controllers/userController");
-
-
-const router = express.Router();
+ const router = express.Router();
 
 /* =========================
    SIGNUP
@@ -53,7 +48,7 @@ router.post("/login", async (req, res) => {
     }
 
     const token = jwt.sign(
-      { id: user._id.toString(), role: user.role },
+      { id: user._id.toString(), name: user.name, role: user.role },
       process.env.JWT_SECRET,
       { expiresIn: "1d" }
     );
@@ -73,7 +68,8 @@ router.post("/login", async (req, res) => {
 ========================= */
 router.get("/profile", authMiddleware, async (req, res) => {
   try {
-    const user = await User.findById(req.user.userId).select("-password");
+    // const user = await User.findById(req.user.userId).select("-password");
+    const user = await User.findById(req.user.Id).select("-password");
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
@@ -87,7 +83,7 @@ router.get("/profile", authMiddleware, async (req, res) => {
    ADMIN → GET USERS
 ========================= */
 router.get("/users", authMiddleware, async (req, res) => {
-  if (req.user.role !== "admin") {
+  if (!["admin", "super_admin"].includes(req.user.role)) {
     return res.status(403).json({ message: "Admin only" });
   }
 
@@ -127,7 +123,7 @@ router.put("/users/:id", authMiddleware, updateUser);
    ADMIN → ADD POINTS
 ========================= */
 router.post("/users/:id/add-points", authMiddleware, async (req, res) => {
-  if (req.user.role !== "admin") {
+  if (!["admin", "super_admin"].includes(req.user.role)) {
     return res.status(403).json({ message: "Admin only" });
   }
 
@@ -149,26 +145,31 @@ router.post("/users/:id/add-points", authMiddleware, async (req, res) => {
 USER ALIVE
 =================*/
 router.put("/users/:id/status", authMiddleware, async (req, res) => {
-  if (req.user.role !== "admin") {
-    return res.status(403).json({ message: "Admin only" });
+  try {
+    if (req.user.role !== "super_admin") {
+      return res.status(403).json({ message: "Only super admin allowed" });
+    }
+
+    const { isActive } = req.body;
+
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      { isActive },
+      { new: true }
+    ).select("-password");
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.json({
+      message: "User status updated",
+      user,
+    });
+
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
   }
-
-  const { isActive } = req.body;
-
-  const user = await User.findByIdAndUpdate(
-    req.params.id,
-    { isActive },
-    { new: true }
-  ).select("-password");
-
-  if (!user) {
-    return res.status(404).json({ message: "User not found" });
-  }
-
-  res.json({
-    message: "User status updated",
-    user,
-  });
 });
 
 
@@ -188,7 +189,7 @@ router.get("/filter-users", getUsersBySpeciality);
 /* =========================
    create user (ADMIN)
 ========================= */
-router.post("/admin/create-user", createUserByAdmin);
+router.post("/admin/create-user", authMiddleware, createUserByAdmin);
 
 
 /* =========================
